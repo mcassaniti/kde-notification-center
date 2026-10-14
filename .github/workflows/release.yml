@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v001)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build Packages & Deliver Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Packaging Tools & Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm dpkg-dev python3-setuptools
+          python3 -m pip install --upgrade pip setuptools wheel
+
+      - name: Determine Version
+        id: ver
+        run: |
+          RAW_TAG="${{ inputs.tag || github.ref_name }}"
+          # Follow systemd-style versioning by stripping the leading 'v' (e.g. v001 -> 001)
+          VERSION="${RAW_TAG#v}"
+          echo "tag=${RAW_TAG}"       >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}"   >> "$GITHUB_OUTPUT"
+          echo "Target Release Tag    : ${RAW_TAG}"
+          echo "Target Package Version: ${VERSION}"
+
+      - name: Build DEB and RPM Packages
+        run: |
+          ./packaging/build.sh "${{ steps.ver.outputs.version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Release ${{ steps.ver.outputs.tag }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: |
+            dist/*.deb
+            dist/*.rpm
+            dist/SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
