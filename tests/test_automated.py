@@ -487,6 +487,24 @@ def run_tests() -> bool:
         except Exception as e:
             assert_test("Test 11: Ctrl+Q close shortcut", False, str(e))
 
+        # TEST 12: UTC to Local Timestamp Conversion
+        try:
+            sample_utc = "2026-10-20 23:30:33"
+            parsed_dt = util.parse_utc_timestamp(sample_utc)
+            assert parsed_dt is not None, "Failed to parse UTC timestamp"
+            assert parsed_dt.tzinfo is not None, "Parsed timestamp must have tzinfo"
+
+            formatted_full = util.format_local_timestamp(sample_utc, short=False)
+            expected_full = parsed_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+            assert_test(
+                "Test 12: UTC to local timestamp parsing and formatting",
+                formatted_full == expected_full and len(formatted_full) == 19,
+                f"formatted={formatted_full}, expected={expected_full}",
+            )
+        except Exception as e:
+            assert_test("Test 12: UTC to local timestamp conversion", False, str(e))
+
     finally:
         server_proc.terminate()
         try:

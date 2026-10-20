@@ -1,6 +1,5 @@
 '''Main UI window for KDE Notification Center'''
 
-from datetime import datetime
 import html
 from typing import Any, Callable, Optional
 
@@ -432,14 +431,14 @@ class NotificationMainWindow(QMainWindow):
                 for n in notifs:
                     c_str = n.get("created_at", "")
                     try:
-                        dt = datetime.strptime(c_str, "%Y-%m-%d %H:%M:%S")
-                        ts = dt.timestamp()
-                        if ts > latest_ts:
-                            latest_ts = ts
-                            if dt.date() == datetime.now().date():
-                                latest_time_str = dt.strftime("%H:%M:%S")
-                            else:
-                                latest_time_str = dt.strftime("%b %d %H:%M")
+                        dt = util.parse_utc_timestamp(c_str)
+                        if dt:
+                            ts = dt.timestamp()
+                            if ts > latest_ts:
+                                latest_ts = ts
+                                latest_time_str = util.format_local_timestamp(
+                                    c_str, short=True
+                                )
                     except Exception:
                         pass
 
@@ -532,16 +531,9 @@ class NotificationMainWindow(QMainWindow):
             urgency_text = "🔵 Normal"
 
         created_str = n.get("created_at", "")
-        ts_val = 0.0
-        try:
-            dt = datetime.strptime(created_str, "%Y-%m-%d %H:%M:%S")
-            ts_val = dt.timestamp()
-            if dt.date() == datetime.now().date():
-                time_display = dt.strftime("%H:%M:%S")
-            else:
-                time_display = dt.strftime("%b %d %H:%M")
-        except Exception:
-            time_display = created_str
+        dt = util.parse_utc_timestamp(created_str)
+        ts_val = dt.timestamp() if dt else 0.0
+        time_display = util.format_local_timestamp(created_str, short=True)
 
         summary = n.get("summary", "") or "(No title)"
         status_str = n.get("status", "").capitalize()
@@ -788,7 +780,9 @@ class NotificationMainWindow(QMainWindow):
                 else "#888888"
             )
             summary_txt = html.escape(n.get("summary") or "(No title)")
-            time_txt = html.escape(n.get("created_at") or "")
+            time_txt = html.escape(
+                util.format_local_timestamp(n.get("created_at") or "", short=True)
+            )
             body_preview = html.escape(n.get("body") or "")[:120]
             if len(n.get("body") or "") > 120:
                 body_preview += "..."
@@ -817,7 +811,7 @@ class NotificationMainWindow(QMainWindow):
 
         summary = n.get("summary", "") or "(No title)"
         app_name = n.get("app_name", "Unknown")
-        created_at = n.get("created_at", "")
+        created_at = util.format_local_timestamp(n.get("created_at", ""))
         status = n.get("status", "").lower()
         urgency = n.get("urgency", int(constants.Urgency.NORMAL))
 
@@ -1343,8 +1337,9 @@ class NotificationMainWindow(QMainWindow):
             ]
             lines = [f"=== {self._selected_group_app} ==="]
             for n in group_notifs:
+                local_time = util.format_local_timestamp(n.get("created_at", ""))
                 lines.append(
-                    f"[{n.get('created_at', '')}] {n.get('summary', '')}: {n.get('body', '')}"
+                    f"[{local_time}] {n.get('summary', '')}: {n.get('body', '')}"
                 )
             clipboard.setText("\n".join(lines))
             self.status_bar.showMessage("Group summary copied to clipboard!", 2500)

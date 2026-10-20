@@ -1,5 +1,6 @@
 '''Utility and helper functions for KDE Notification Center'''
 
+from datetime import datetime, timezone
 import logging
 from pathlib import Path
 from typing import Optional
@@ -24,6 +25,39 @@ def setup_logging(level_name: str = "INFO") -> logging.Logger:
     )
     LOGGER.setLevel(level)
     return LOGGER
+
+
+def parse_utc_timestamp(ts_str: Optional[str]) -> Optional[datetime]:
+    '''Parse a UTC timestamp string (e.g. from SQLite) into local datetime'''
+
+    if not ts_str:
+        return None
+    try:
+        clean_str = ts_str.replace("T", " ")
+        if "." in clean_str:
+            clean_str = clean_str.split(".")[0]
+        utc_dt = datetime.strptime(
+            clean_str, "%Y-%m-%d %H:%M:%S"
+        ).replace(tzinfo=timezone.utc)
+        return utc_dt.astimezone()
+    except Exception:
+        return None
+
+
+def format_local_timestamp(ts_str: Optional[str], short: bool = False) -> str:
+    '''Convert a UTC timestamp string into formatted local time for display'''
+
+    local_dt = parse_utc_timestamp(ts_str)
+    if not local_dt:
+        return ts_str or ""
+
+    if short:
+        now_local = datetime.now().astimezone()
+        if local_dt.date() == now_local.date():
+            return local_dt.strftime("%H:%M:%S")
+        return local_dt.strftime("%b %d %H:%M")
+
+    return local_dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def create_badge_icon(count: int, dnd: bool = False) -> QIcon:

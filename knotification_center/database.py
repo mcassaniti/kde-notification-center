@@ -1,6 +1,6 @@
 '''Database management for KDE Notification Center'''
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from json import dumps, loads
 from pathlib import Path
 import sqlite3
@@ -242,7 +242,7 @@ class NotificationDB:
     def auto_purge_dismissed(self, days: int = constants.DEFAULT_PURGE_DAYS) -> int:
         '''Purge dismissed notifications older than specified days'''
 
-        cutoff = datetime.now() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         LOGGER.debug(
             "Auto-purging dismissed notifications older than %d days (%s)",
             days,
