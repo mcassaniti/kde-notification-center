@@ -505,6 +505,26 @@ def run_tests() -> bool:
         except Exception as e:
             assert_test("Test 12: UTC to local timestamp conversion", False, str(e))
 
+        # TEST 13: Ctrl+D Clear All Active Shortcut
+        try:
+            notif_iface.Notify(
+                "ShortcutApp", 0, "", "To Clear", "Body", list(), dict(), 5000
+            )
+            pump_events(q_app, 0.2)
+            window.reload_data()
+            assert db.get_counts()["active"] >= 1, "Expected active alert before Ctrl+D"
+
+            window._sc_clear_all.activated.emit()
+            pump_events(q_app, 0.2)
+
+            assert_test(
+                "Test 13: Ctrl+D shortcut dismisses all active notifications",
+                db.get_counts()["active"] == 0,
+                f"active_count={db.get_counts()['active']}",
+            )
+        except Exception as e:
+            assert_test("Test 13: Ctrl+D clear all shortcut", False, str(e))
+
     finally:
         server_proc.terminate()
         try:

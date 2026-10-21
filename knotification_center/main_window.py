@@ -149,7 +149,7 @@ class NotificationMainWindow(QMainWindow):
 
         self.btn_clear_all_active = QPushButton("🧹 Clear All Active in KDE")
         self.btn_clear_all_active.setToolTip(
-            "Dismiss all currently active notifications across KDE desktop (no confirmation)"
+            "Dismiss all currently active notifications across KDE desktop (Ctrl+D)"
         )
         action_layout.addWidget(self.btn_clear_all_active)
 
@@ -280,6 +280,9 @@ class NotificationMainWindow(QMainWindow):
 
         self._sc_close = QShortcut(QKeySequence("Ctrl+Q"), self)
         self._sc_close.activated.connect(self.close)
+
+        self._sc_clear_all = QShortcut(QKeySequence("Ctrl+D"), self)
+        self._sc_clear_all.activated.connect(self._on_clear_all_active)
 
     def _connect_signals(self) -> None:
         '''Connect UI widget events and D-Bus background worker signals'''

@@ -26,7 +26,7 @@ daily notification management application.
 - **Batch Cleanup**:
   - Multi-select rows (`Ctrl+Click`, `Shift+Click`).
   - "Dismiss Selected in KDE".
-  - "Clear All Active in KDE".
+  - "Clear All Active in KDE" (`Ctrl+D`).
   - "Delete from History" (`Delete` key).
   - "Purge Dismissed > 30 Days".
 - **Detail Inspector & Interactions**:
