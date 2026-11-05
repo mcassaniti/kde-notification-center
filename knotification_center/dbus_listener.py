@@ -5,11 +5,18 @@ from typing import Any, Optional
 
 import dbus
 import dbus.lowlevel
+from dbus.mainloop.glib import DBusGMainLoop, threads_init
 from PyQt6.QtCore import QObject, pyqtSignal
 
 from knotification_center import constants
 from knotification_center.database import NotificationDB
 from knotification_center import util
+
+try:
+    threads_init()
+    DBusGMainLoop(set_as_default=True)
+except Exception:
+    pass
 
 LOGGER = util.LOGGER
 
@@ -26,15 +33,17 @@ class DBusNotificationWorker(QObject):
         super().__init__(parent)
         self.db                = db
         self.bus               : Optional[dbus.SessionBus]  = None
+        self.monitor_bus       : Optional[dbus.SessionBus]  = None
         self.notify_iface      : Optional[dbus.Interface]   = None
         self.kde_notif_mgr     : Optional[dbus.Interface]   = None
         self._pending_notifies : dict[tuple[Any, Any], int] = dict()
 
     def start_listening(self) -> None:
-        '''Initialize private D-Bus session connection and install message eavesdrop filters'''
+        '''Initialize D-Bus connections for commands and message monitoring'''
 
         LOGGER.info("Starting D-Bus eavesdrop listener")
-        self.bus = dbus.SessionBus(private=True)
+        self.bus = dbus.SessionBus()
+        self.monitor_bus = dbus.SessionBus(private=True)
 
         try:
             proxy = self.bus.get_object(
@@ -55,18 +64,61 @@ class DBusNotificationWorker(QObject):
         except Exception as e:
             LOGGER.warning("Could not connect to notification proxy: %s", e)
 
-        self.bus.add_message_filter(self._filter_message)
-        self.bus.add_match_string_non_blocking(
-            f"eavesdrop=true,interface='{constants.DBUS_NOTIF_IFACE}'"
-        )
-        self.bus.add_match_string_non_blocking("type='method_return',eavesdrop=true")
-        self.bus.add_match_string_non_blocking(
-            f"type='signal',interface='{constants.DBUS_NOTIF_IFACE}',eavesdrop=true"
-        )
-        self.bus.add_match_string_non_blocking(
-            f"type='signal',interface='{constants.DBUS_PROPERTIES_IFACE}',"
-            f"member='PropertiesChanged',path='{constants.DBUS_NOTIF_PATH}'"
-        )
+        self.monitor_bus.add_message_filter(self._filter_message)
+
+        rules = [
+            (
+                f"type='method_call',interface='{constants.DBUS_NOTIF_IFACE}',"
+                f"member='Notify'"
+            ),
+            "type='method_return'",
+            (
+                f"type='signal',interface='{constants.DBUS_NOTIF_IFACE}',"
+                f"member='NotificationClosed'"
+            ),
+            (
+                f"type='signal',interface='{constants.DBUS_PROPERTIES_IFACE}',"
+                f"member='PropertiesChanged',path='{constants.DBUS_NOTIF_PATH}'"
+            ),
+        ]
+
+        try:
+            dbus_obj = self.monitor_bus.get_object(
+                "org.freedesktop.DBus",
+                "/org/freedesktop/DBus",
+            )
+            mon_iface = dbus.Interface(dbus_obj, "org.freedesktop.DBus.Monitoring")
+            mon_iface.BecomeMonitor(rules, dbus.UInt32(0))
+            LOGGER.info("Registered D-Bus monitor via BecomeMonitor")
+        except Exception as e:
+            LOGGER.warning(
+                "BecomeMonitor unavailable (%s); falling back to legacy rules",
+                e,
+            )
+            self.monitor_bus.add_match_string_non_blocking(
+                f"eavesdrop=true,interface='{constants.DBUS_NOTIF_IFACE}'"
+            )
+            self.monitor_bus.add_match_string_non_blocking(
+                "type='method_return',eavesdrop=true"
+            )
+            self.monitor_bus.add_match_string_non_blocking(
+                f"type='signal',interface='{constants.DBUS_NOTIF_IFACE}',"
+                f"eavesdrop=true"
+            )
+            self.monitor_bus.add_match_string_non_blocking(
+                f"type='signal',interface='{constants.DBUS_PROPERTIES_IFACE}',"
+                f"member='PropertiesChanged',path='{constants.DBUS_NOTIF_PATH}'"
+            )
+
+    def cleanup(self) -> None:
+        '''Clean up D-Bus monitor connection'''
+
+        if self.monitor_bus:
+            try:
+                self.monitor_bus.close()
+            except Exception:
+                pass
+            self.monitor_bus = None
 
     def _filter_message(self, bus: dbus.SessionBus, message: dbus.lowlevel.Message) -> None:
         '''Filter incoming D-Bus messages from private connection'''

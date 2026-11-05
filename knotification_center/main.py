@@ -149,6 +149,7 @@ def main() -> None:
         on_secondary_activate=util.toggle_kde_dnd,
     )
     app.aboutToQuit.connect(tray.cleanup)
+    app.aboutToQuit.connect(worker.cleanup)
     app.aboutToQuit.connect(db.close)
 
     def update_tray_state(counts: Optional[dict[str, int]] = None) -> None:

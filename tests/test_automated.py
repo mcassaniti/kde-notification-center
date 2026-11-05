@@ -549,5 +549,13 @@ def test_regression_suite() -> None:
 
 
 if __name__ == "__main__":
+    if "DBUS_TEST_ISOLATED" not in environ and shutil.which("dbus-run-session"):
+        env = dict(environ)
+        env["DBUS_TEST_ISOLATED"] = "1"
+        res = subprocess.run(
+            ["dbus-run-session", "--", sys.executable] + sys.argv,
+            env=env,
+        )
+        sys.exit(res.returncode)
     success = run_tests()
     sys.exit(0 if success else 1)
