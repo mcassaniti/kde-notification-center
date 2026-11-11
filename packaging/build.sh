@@ -27,12 +27,17 @@ if command -v dpkg-deb >/dev/null 2>&1; then
     mkdir -p "${DEB_STAGING}/usr/share/doc/${APP_NAME}"
 
     # Check if Debian-specific --install-layout option is supported
+    PYTHON_BIN="/usr/bin/python3"
+    if [ ! -x "${PYTHON_BIN}" ]; then
+        PYTHON_BIN="$(command -v python3)"
+    fi
+
     LAYOUT_ARG=""
-    if python3 setup.py install --help 2>&1 | grep -q -- '--install-layout'; then
+    if "${PYTHON_BIN}" setup.py install --help 2>&1 | grep -q -- '--install-layout'; then
         LAYOUT_ARG="--install-layout=deb"
     fi
 
-    VERSION="${VERSION}" python3 setup.py install \
+    VERSION="${VERSION}" "${PYTHON_BIN}" setup.py install \
         --root="${DEB_STAGING}" \
         ${LAYOUT_ARG} \
         --prefix=/usr
@@ -48,6 +53,15 @@ if command -v dpkg-deb >/dev/null 2>&1; then
         done
         for py_dir in "${DEB_STAGING}/usr/lib/python3."*; do
             [ -d "${py_dir}" ] && rmdir "${py_dir}" 2>/dev/null || true
+        done
+    fi
+
+    # Rewrite any generated shebangs to system /usr/bin/python3
+    if [ -d "${DEB_STAGING}/usr/bin" ]; then
+        for bin_file in "${DEB_STAGING}/usr/bin/"*; do
+            if [ -f "${bin_file}" ]; then
+                sed -i '1s|^#!.*python.*|#!/usr/bin/python3|' "${bin_file}"
+            fi
         done
     fi
 

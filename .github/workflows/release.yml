@@ -22,16 +22,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - name: Install Packaging Tools & Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm dpkg-dev python3-setuptools
-          python3 -m pip install --upgrade pip setuptools wheel
+          sudo apt-get install -y rpm dpkg-dev python3 python3-setuptools python3-pip python3-wheel
 
       - name: Determine Version
         id: ver

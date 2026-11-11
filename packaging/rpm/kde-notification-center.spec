@@ -34,6 +34,11 @@ rm -rf %{buildroot}
 mkdir -p %{buildroot}
 python3 setup.py install -O1 --skip-build --root %{buildroot} --prefix=/usr
 
+# Ensure standard system python3 shebang
+if [ -d "%{buildroot}%{_bindir}" ]; then
+    sed -i '1s|^#!.*python.*|#!/usr/bin/python3|' %{buildroot}%{_bindir}/*
+fi
+
 install -D -m 0644 packaging/knotification-center.desktop %{buildroot}%{_datadir}/applications/knotification-center.desktop
 install -D -m 0644 packaging/knotification-center-autostart.desktop %{buildroot}%{_sysconfdir}/xdg/autostart/knotification-center.desktop
 
