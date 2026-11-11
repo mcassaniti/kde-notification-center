@@ -27,10 +27,7 @@ if command -v dpkg-deb >/dev/null 2>&1; then
     mkdir -p "${DEB_STAGING}/usr/share/doc/${APP_NAME}"
 
     # Check if Debian-specific --install-layout option is supported
-    PYTHON_BIN="/usr/bin/python3"
-    if [ ! -x "${PYTHON_BIN}" ]; then
-        PYTHON_BIN="$(command -v python3)"
-    fi
+    PYTHON_BIN="$(command -v python3)"
 
     LAYOUT_ARG=""
     if "${PYTHON_BIN}" setup.py install --help 2>&1 | grep -q -- '--install-layout'; then

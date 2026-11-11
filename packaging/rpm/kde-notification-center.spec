@@ -34,6 +34,12 @@ rm -rf %{buildroot}
 mkdir -p %{buildroot}
 python3 setup.py install -O1 --skip-build --root %{buildroot} --prefix=/usr
 
+# If Debian/Ubuntu patched python redirected files into /usr/local, move to /usr
+if [ -d "%{buildroot}/usr/local" ]; then
+    cp -a %{buildroot}/usr/local/* %{buildroot}/usr/
+    rm -rf %{buildroot}/usr/local
+fi
+
 # Ensure standard system python3 shebang
 if [ -d "%{buildroot}%{_bindir}" ]; then
     sed -i '1s|^#!.*python.*|#!/usr/bin/python3|' %{buildroot}%{_bindir}/*
