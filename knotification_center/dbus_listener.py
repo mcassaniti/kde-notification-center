@@ -219,6 +219,9 @@ class DBusNotificationWorker(QObject):
 
         sender = message.get_sender()
         serial = message.get_serial()
+        if len(self._pending_notifies) > 200:
+            oldest_key = next(iter(self._pending_notifies))
+            self._pending_notifies.pop(oldest_key, None)
         self._pending_notifies[(sender, serial)] = internal_id
 
         data = {
@@ -239,21 +242,34 @@ class DBusNotificationWorker(QObject):
     def _handle_method_return(self, message: dbus.lowlevel.Message) -> None:
         '''Map Notify method return serial back to internal notification ID'''
 
+        destination = message.get_destination()
         reply_serial = message.get_reply_serial()
+        key = (destination, reply_serial)
+
+        if key not in self._pending_notifies:
+            return
+
         args = message.get_args_list()
         if not args:
             return
 
-        for key in list(self._pending_notifies.keys()):
-            if key[1] == reply_serial:
-                internal_id = self._pending_notifies.pop(key)
-                try:
-                    dbus_id = int(args[0])
-                    self.db.update_dbus_id(internal_id, dbus_id)
-                    self.dbus_id_updated.emit(internal_id, dbus_id)
-                except Exception as e:
-                    LOGGER.error("Failed mapping method return to dbus_id: %s", e)
-                break
+        internal_id = self._pending_notifies.pop(key)
+        try:
+            val = args[0]
+            if isinstance(val, (int, dbus.UInt32, dbus.Int32, dbus.Byte)) or (
+                isinstance(val, str) and val.isdigit()
+            ):
+                dbus_id = int(val)
+                self.db.update_dbus_id(internal_id, dbus_id)
+                self.dbus_id_updated.emit(internal_id, dbus_id)
+            else:
+                LOGGER.debug(
+                    "Method return for id %d did not return an integer: %r",
+                    internal_id,
+                    type(val),
+                )
+        except Exception as e:
+            LOGGER.error("Failed mapping method return to dbus_id: %s", e)
 
     def _handle_notification_closed(self, message: dbus.lowlevel.Message) -> None:
         '''Handle NotificationClosed signal from desktop notification server'''
